@@ -5,3 +5,7 @@ Pillow
 PyPDF2
 playwright
 groq
+
+
+# Automatically install Playwright browsers
+playwright install --with-deps
