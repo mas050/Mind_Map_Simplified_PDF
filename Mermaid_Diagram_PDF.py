@@ -11,6 +11,15 @@ from groq import Groq
 from playwright.sync_api import sync_playwright
 from PyPDF2 import PdfReader
 
+import os
+from playwright.sync_api import sync_playwright
+from playwright._impl._driver import compute_driver_executable
+
+# Ensure Playwright browsers are installed
+driver_path = compute_driver_executable()
+if not os.path.exists(driver_path):
+    from playwright.__main__ import main as playwright_main
+    playwright_main(["install", "chromium"])
 
 # Securely set API keys (replace placeholders securely in production)
 API_KEY = os.getenv("GENAI_API_KEY", "AIzaSyCOhsh-JWBd6B006GA0UgdIW6wRcNon7lk")
