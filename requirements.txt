@@ -1,0 +1,7 @@
+streamlit
+google-generativeai
+pdf2image
+Pillow
+PyPDF2
+playwright
+groq
