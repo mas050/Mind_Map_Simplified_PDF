@@ -7,33 +7,15 @@ import base64
 from PIL import Image
 import io
 import tempfile
-from groq import Groq
-from playwright.sync_api import sync_playwright
 from PyPDF2 import PdfReader
-
-from playwright._impl._driver import compute_driver_executable
-
-def ensure_playwright_browsers_installed():
-    """Ensures that Playwright browser binaries are installed."""
-    try:
-        from playwright.__main__ import main as playwright_main
-        print("Checking Playwright browser installation...")
-        playwright_main(["install", "chromium"])  # Only install Chromium for your use case
-    except Exception as e:
-        print(f"Error installing Playwright browsers: {e}")
-
-# Ensure browsers are installed before using Playwright
-ensure_playwright_browsers_installed()
-
+import requests
 
 # Securely set API keys (replace placeholders securely in production)
 API_KEY = os.getenv("GENAI_API_KEY", "AIzaSyCOhsh-JWBd6B006GA0UgdIW6wRcNon7lk")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "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")
 
-# Configure Generative AI and Groq
+# Configure Generative AI
 genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
-client = Groq(api_key=GROQ_API_KEY)
 
 
 def clean_text(text):
@@ -57,58 +39,43 @@ def extract_text_from_pdf(pdf_file):
     return "".join(page.extract_text() for page in reader.pages)
 
 
-def render_high_res_mermaid(mermaid_code, output_file, width=1920, height=1080, scale=5):
-    """Renders a high-resolution Mermaid diagram using Playwright."""
-    html_template = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-        <script>
-            mermaid.initialize({{"startOnLoad": true}});
-        </script>
-    </head>
-    <body>
-        <div class="mermaid">{mermaid_code}</div>
-    </body>
-    </html>
-    """
-
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        context = browser.new_context(viewport={"width": width * scale, "height": height * scale})
-        page = context.new_page()
-        page.set_content(html_template)
-        page.screenshot(path=output_file, full_page=True)
-        browser.close()
-    return output_file
+def render_mermaid_with_kroki(mermaid_code):
+    """Render Mermaid diagram using kroki.io."""
+    url = "https://kroki.io/mermaid/png"
+    response = requests.post(url, data=mermaid_code.encode('utf-8'))
+    if response.status_code == 200:
+        return base64.b64encode(response.content).decode('utf-8')
+    else:
+        raise Exception(f"Error rendering diagram: {response.status_code} - {response.text}")
 
 
-def display_zoomable_image(image_path):
-    """Displays an image with zoom functionality in Streamlit."""
-    with open(image_path, "rb") as img_file:
-        img_base64 = base64.b64encode(img_file.read()).decode("utf-8")
-    zoomable_html = f"""
-    <html>
-    <head>
-        <style>
-            img {{
-                width: 100%;
-                height: auto;
-                transform: scale(1);
-                transition: transform 0.2s;
-            }}
-            img:hover {{
-                transform: scale(2);
-            }}
-        </style>
-    </head>
-    <body>
-        <img src="data:image/png;base64,{img_base64}" alt="Zoomable Image" />
-    </body>
-    </html>
-    """
-    html(zoomable_html, height=800)
+def display_mermaid_image_kroki(mermaid_code):
+    """Display Mermaid diagram using Kroki."""
+    try:
+        img_base64 = render_mermaid_with_kroki(mermaid_code)
+        zoomable_html = f"""
+        <html>
+        <head>
+            <style>
+                img {{
+                    width: 100%;
+                    height: auto;
+                    transform: scale(1);
+                    transition: transform 0.2s;
+                }}
+                img:hover {{
+                    transform: scale(2);
+                }}
+            </style>
+        </head>
+        <body>
+            <img src="data:image/png;base64,{img_base64}" alt="Diagram" />
+        </body>
+        </html>
+        """
+        html(zoomable_html, height=800)
+    except Exception as e:
+        st.error(f"Error displaying Mermaid diagram: {e}")
 
 
 def generate_mind_map_text(text):
@@ -161,8 +128,7 @@ def generate_mind_map_text(text):
     Highlights interconnections.
     Includes explanation nodes for context.
 
-    Use and follow exactlty the format as a structural reference for your output: \
-    To name the subgraph, inside the brakets do not start the name by a number. \
+    Use and follow exactly the format as a structural reference for your output: \
         
     graph TD
         %% Root Node
@@ -177,22 +143,7 @@ def generate_mind_map_text(text):
         end
         A --> SG1
 
-        %% Subgraph 2
-        subgraph SG2[Main Section 2]
-            C1[Subsection 2.1]
-            C1 --> Context_C1[Context: Brief explanation or significance of Subsection 2.1.]
-            C2[Subsection 2.2]
-            C2 --> Context_C2[Context: Brief explanation or significance of Subsection 2.2.]
-        end
-        A --> SG2
-
-    Consistency with the Document:
-
-    Break down the document ensuring all sections and their relationships are clearly represented.
-    Do not get lost with useless information.
-    Provide the Mermaid diagram syntax as the final output, and ensure it follows these guidelines.
-
-    Here is the document to analyze: \
+    Here's the document to analyze: \
     {summary}
     """
     return model.generate_content(diagram_prompt).text
@@ -206,40 +157,8 @@ def extract_mermaid_code(raw_diagram):
     Output requirements:
     -Do not output explanations, introduction, conclusion of special characters. \
     -Do not add Triple backticks or asterisk or quotation mark or any special characters \
-    -It has to start with "graph " followed by the rest of the ermaid diagram structure \
-    -Just output the mermaid text because it will be passed to a playwright python script to render it as an image, so it needs to be only the mermaid diagram structure. \
-    
-    Treatment required of the mermaid diagram structure:\
-    -remove any Triple backticks or asterisk or quotation mark in it \
-    -If you notice a piece of text with parenthesis, remove it! For exemple, if you see "this is (text) to treat" you would completely remove it and output "this is to treat" \
-    -remove any section related to image, logo or irrelevant piece that are not about key concepts, ideas and insights a reader should remember after reading the document. \
-
-    Use and follow exactlty the format as a structural reference for your output: \
-    To name the subgraph, inside the brakets do not start the name by a number. \
-
-    graph TD
-        %% Root Node
-        A[Root Topic or Document Title]
-
-        %% Subgraph 1
-        subgraph SG1[Main Section 1]
-            B1[Subsection 1.1]
-            B1 --> Context_B1[Context: Brief explanation or significance of Subsection 1.1.]
-            B2[Subsection 1.2]
-            B2 --> Context_B2[Context: Brief explanation or significance of Subsection 1.2.]
-        end
-        A --> SG1
-
-        %% Subgraph 2
-        subgraph SG2[Main Section 2]
-            C1[Subsection 2.1]
-            C1 --> Context_C1[Context: Brief explanation or significance of Subsection 2.1.]
-            C2[Subsection 2.2]
-            C2 --> Context_C2[Context: Brief explanation or significance of Subsection 2.2.]
-        end
-        A --> SG2
-
-    Here's the piece of text to extract the mermaid diagram structure: \
+    -It has to start with "graph " followed by the rest of the mermaid diagram structure \
+    Here's the diagram structure to extract: \
     {raw_diagram}
     """
     return model.generate_content(clean_prompt).text
@@ -262,11 +181,8 @@ def main():
                     mermaid_code = extract_mermaid_code(raw_diagram)
                     cleaned_code = clean_text(mermaid_code)
 
-                    output_file = "diagram.png"
-                    render_high_res_mermaid(cleaned_code, output_file)
-
                     st.subheader("Generated Mermaid Diagram:")
-                    display_zoomable_image(output_file)
+                    display_mermaid_image_kroki(cleaned_code)
                 except Exception as e:
                     st.error(f"Error generating Mermaid diagram: {e}")
     else:
