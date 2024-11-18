@@ -13,17 +13,17 @@ from PyPDF2 import PdfReader
 
 from playwright._impl._driver import compute_driver_executable
 
-try:
-    # Dynamically compute the Playwright driver executable path
-    driver_path = compute_driver_executable()
-
-    # Check if the Playwright driver exists and install if missing
-    if not os.path.exists(driver_path):
+def ensure_playwright_browsers_installed():
+    """Ensures that Playwright browser binaries are installed."""
+    try:
         from playwright.__main__ import main as playwright_main
-        print("Installing Playwright browsers...")
-        playwright_main(["install", "chromium"])
-except Exception as e:
-    print(f"Error during Playwright setup: {e}")
+        print("Checking Playwright browser installation...")
+        playwright_main(["install", "chromium"])  # Only install Chromium for your use case
+    except Exception as e:
+        print(f"Error installing Playwright browsers: {e}")
+
+# Ensure browsers are installed before using Playwright
+ensure_playwright_browsers_installed()
 
 
 # Securely set API keys (replace placeholders securely in production)
