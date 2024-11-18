@@ -40,13 +40,20 @@ def extract_text_from_pdf(pdf_file):
 
 
 def render_mermaid_with_kroki(mermaid_code):
-    """Render Mermaid diagram using kroki.io."""
+    """Render Mermaid diagram using kroki.io with a white background."""
+    # Add Mermaid configuration for white background
+    theme_config = """
+    %%{init: {'theme': 'neutral'}}%%
+    """
+    mermaid_code = theme_config + "\n" + mermaid_code
+
     url = "https://kroki.io/mermaid/png"
     response = requests.post(url, data=mermaid_code.encode('utf-8'))
     if response.status_code == 200:
         return base64.b64encode(response.content).decode('utf-8')
     else:
         raise Exception(f"Error rendering diagram: {response.status_code} - {response.text}")
+
 
 
 def display_mermaid_image_kroki(mermaid_code):
