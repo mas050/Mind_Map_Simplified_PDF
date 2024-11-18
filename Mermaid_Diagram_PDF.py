@@ -38,12 +38,18 @@ def extract_text_from_pdf(pdf_file):
     reader = PdfReader(pdf_file)
     return "".join(page.extract_text() for page in reader.pages)
 
-
 def render_mermaid_with_kroki(mermaid_code):
-    """Render Mermaid diagram using kroki.io with a white background."""
-    # Add Mermaid configuration for white background
+    """Render Mermaid diagram using kroki.io with custom styles for better visibility."""
+    # Add Mermaid configuration for white background and custom styles
     theme_config = """
-    %%{init: {'theme': 'neutral'}}%%
+    %%{init: {'theme': 'neutral', 'themeVariables': {
+        'primaryColor': '#ffffff',
+        'primaryTextColor': '#000000',
+        'primaryBorderColor': '#000000',
+        'lineColor': '#000000',
+        'arrowheadColor': '#000000',
+        'fontFamily': 'Arial'
+    }}}%%
     """
     mermaid_code = theme_config + "\n" + mermaid_code
 
@@ -53,8 +59,6 @@ def render_mermaid_with_kroki(mermaid_code):
         return base64.b64encode(response.content).decode('utf-8')
     else:
         raise Exception(f"Error rendering diagram: {response.status_code} - {response.text}")
-
-
 
 def display_mermaid_image_kroki(mermaid_code):
     """Display Mermaid diagram using Kroki."""
