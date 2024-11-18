@@ -11,8 +11,6 @@ from groq import Groq
 from playwright.sync_api import sync_playwright
 from PyPDF2 import PdfReader
 
-import os
-from playwright.sync_api import sync_playwright
 from playwright._impl._driver import compute_driver_executable
 
 # Ensure Playwright browsers are installed
